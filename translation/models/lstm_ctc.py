@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from decoders import CTCDecoder, CTCDecoderN
+from decoders import CTCDecoder, CTCTransformerDecoder
 
 
 class Encoder(nn.Module):
@@ -71,19 +71,13 @@ class Seq2CTC(nn.Module):
         self.encoder_index_dim = encoder_index_dim
 
     def forward(self, x, y=None):
-        batch_size = x.shape[0]
-        device = x.device
 
-        input_length = x.shape[1]
+        enc_out, _ = self.encoder(x)
 
-        enc_out, hidden = self.encoder(x)
-
-        hidden = [hidden[0].view(self.encoder.layers, batch_size, -1).mean(dim=0).unsqueeze(1),
-                  hidden[1].view(self.encoder.layers, batch_size, -1).mean(dim=0).unsqueeze(1)]
-
-        enc_out = nn.functional.pad(enc_out, (0, 0, 0, enc_out.shape[1]), "constant", 0) + hidden[0] + hidden[1]
+        enc_out = nn.functional.pad(enc_out, (0, 0, 0, enc_out.shape[1]), "constant", 0)
 
         # mask = self.output_mask(enc_out.permute(1, 0, 2))
         # ctc = torch.mul(mask.unsqueeze(-1), self.ctc(enc_out.permute(1, 0, 2)))
 
         return self.ctc(enc_out.permute(1, 0, 2))
+

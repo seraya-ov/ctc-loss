@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 
-from decoders import CTCDecoder, CTCDecoderN
+from decoders import CTCDecoder, CTCTransformerDecoder
 
 
 class PositionalEncoding(nn.Module):
@@ -33,6 +33,7 @@ class Transformer2CTC(nn.Module):
         self.encoder = nn.Embedding(encoder_index_dim, embedding_dim)
         self.embedding_dim = embedding_dim
         self.decoder = CTCDecoder(decoder_index_dim, hidden_dim)
+        # self.output_mask = OutputMask(hidden_dim=hidden_dim)
 
         self.init_weights()
 
@@ -41,8 +42,38 @@ class Transformer2CTC(nn.Module):
         self.encoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, x, mask):
-        x = nn.functional.pad(x, (0, 0, 0, x.shape[0]), "constant", 0)
+        # x = nn.functional.pad(x, (0, 0, 0, x.shape[0]), "constant", 0)
         x = self.encoder(x) * math.sqrt(self.embedding_dim)
         x = self.pos_encoder(x)
         output = self.transformer_encoder(x, mask)
+        # out_mask = self.output_mask(output)
+        # output = torch.mul(out_mask.unsqueeze(-1), self.decoder(output))
+        return self.decoder(output)
+
+
+class Transformer2TransformerCTC(nn.Module):
+    def __init__(self, encoder_index_dim, decoder_index_dim, embedding_dim=256,
+                 heads=4, hidden_dim=256, layers=4, dropout = 0.3):
+        super().__init__()
+        self.model_type = 'Transformer'
+        self.pos_encoder = PositionalEncoding(embedding_dim, dropout)
+        encoder_layers = nn.TransformerEncoderLayer(embedding_dim, heads, hidden_dim, dropout)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, layers)
+        self.encoder = nn.Embedding(encoder_index_dim, embedding_dim)
+        self.embedding_dim = embedding_dim
+        self.decoder = CTCTransformerDecoder(decoder_index_dim, hidden_dim)
+
+        self.init_weights()
+
+    def init_weights(self) -> None:
+        initrange = 0.1
+        self.encoder.weight.data.uniform_(-initrange, initrange)
+
+    def forward(self, x, mask):
+        # x = nn.functional.pad(x, (0, 0, 0, x.shape[0]), "constant", 0)
+        x = self.encoder(x) * math.sqrt(self.embedding_dim)
+        x = self.pos_encoder(x)
+        output = self.transformer_encoder(x, mask)
+        # out_mask = self.output_mask(output)
+        # output = torch.mul(out_mask.unsqueeze(-1), self.decoder(output))
         return self.decoder(output)
