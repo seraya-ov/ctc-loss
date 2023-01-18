@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
+from decoders import CTCDecoder, CTCDecoderN
+
 
 class Encoder(nn.Module):
     def __init__(self, index_dim, embedding_dim=256, hidden_dim=256, dropout=0.2, layers=2):
@@ -60,60 +62,28 @@ class Decoder(nn.Module):
         out = self.linear(out)
         return out, hidden
 
-
-class CTCDecoder(nn.Module):
-    def __init__(self, index_dim, hidden_dim=512):
-        super(CTCDecoder, self).__init__()
-        self.ctc_linear = nn.Linear(hidden_dim, index_dim)
-        self.softmax = nn.LogSoftmax(dim=2)
-
-    def forward(self, x):
-        return self.softmax(self.ctc_linear(x))
-
-
-class Seq2Seq(nn.Module):
-    def __init__(self, encoder_index_dim, decoder_index_dim):
-        super(Seq2Seq, self).__init__()
-        self.encoder = Encoder(encoder_index_dim)
+class Seq2CTC(nn.Module):
+    def __init__(self, encoder_index_dim, decoder_index_dim, hidden_dim=256):
+        super(Seq2CTC, self).__init__()
+        self.encoder = Encoder(encoder_index_dim, hidden_dim=hidden_dim)
         self.ctc = CTCDecoder(decoder_index_dim)
-        self.decoder = Decoder(decoder_index_dim)
-
+        # self.output_mask = OutputMask(2 * hidden_dim)
         self.encoder_index_dim = encoder_index_dim
-        self.decoder_index_dim = decoder_index_dim
 
-    def forward(self, x, y, use_teacher_forcing):
-        assert x.shape[0] == y.shape[0]
-        if y is not None:
-            assert x.device == y.device
-
+    def forward(self, x, y=None):
         batch_size = x.shape[0]
         device = x.device
 
-        if y is not None:
-            target_length = y.shape[1]
-        else:
-            target_length = x.shape[1]
+        input_length = x.shape[1]
 
         enc_out, hidden = self.encoder(x)
 
-        hidden = [hidden[0].view(self.encoder.layers, batch_size, -1).mean(dim=0).unsqueeze(0),
-                  hidden[1].view(self.encoder.layers, batch_size, -1).mean(dim=0).unsqueeze(0)]
-        ctc = self.ctc(enc_out)
-        out = y[:, 0].unsqueeze(1)
+        hidden = [hidden[0].view(self.encoder.layers, batch_size, -1).mean(dim=0).unsqueeze(1),
+                  hidden[1].view(self.encoder.layers, batch_size, -1).mean(dim=0).unsqueeze(1)]
 
-        outputs = torch.zeros(batch_size, target_length, self.decoder_index_dim).to(device)
+        enc_out = nn.functional.pad(enc_out, (0, 0, 0, enc_out.shape[1]), "constant", 0) + hidden[0] + hidden[1]
 
-        if use_teacher_forcing and y is not None:
-            for di in range(1, target_length):
-                out, hidden = self.decoder(out.to(dtype=torch.long), hidden, enc_out)
-                outputs[:, di:di + 1] = out
+        # mask = self.output_mask(enc_out.permute(1, 0, 2))
+        # ctc = torch.mul(mask.unsqueeze(-1), self.ctc(enc_out.permute(1, 0, 2)))
 
-                out = y[:, di].unsqueeze(1)
-        else:
-            for di in range(1, target_length):
-                out, hidden = self.decoder(out.to(dtype=torch.long), hidden, enc_out)
-                outputs[:, di:di + 1] = out
-
-                out = out.argmax(dim=-1)
-
-        return ctc, outputs
+        return self.ctc(enc_out.permute(1, 0, 2))

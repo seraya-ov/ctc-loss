@@ -2,7 +2,7 @@ import torch
 
 from data.data import TranslationDataset, collate_fn
 from train.lstm_ctc_trainer import TranslationLSTMTCTCrainer
-from models.lstm_ctc import Seq2Seq
+from models.lstm_ctc import Seq2CTC
 
 from data.vocab import WordsVocab
 
@@ -12,7 +12,7 @@ import argparse
 
 
 def train(args):
-    vocabs = [WordsVocab(lang='french', capacity=args['vocab_size']),
+    vocabs = [WordsVocab(lang='german', capacity=args['vocab_size']),
               WordsVocab(lang='english', capacity=args['vocab_size'])]
     paths = [args['train_from'],
              args['train_to']]
@@ -30,7 +30,7 @@ def train(args):
     train_loader = DataLoader(train_dataset, batch_size=args['batch_size'], collate_fn=collate_fn)
     val_loader = DataLoader(test_dataset, batch_size=args['batch_size'], collate_fn=collate_fn)
 
-    ctc_model = Seq2Seq(len(vocabs[0].t2i), len(vocabs[1].t2i))
+    ctc_model = Seq2CTC(len(vocabs[0].t2i), len(vocabs[1].t2i))
     ctc_trainer = TranslationLSTMTCTCrainer(ctc_model, train_loader, val_loader, vocabs,
                                             lr=args['lr'], save_every=1, name='bilstm_with_ctc_256',
                                             save_path=args['checkpoint_path'])

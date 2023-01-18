@@ -2,7 +2,7 @@ import torch
 
 from data.utils import generate_translation
 from data.vocab import WordsVocab
-from models.lstm_ctc import Seq2Seq
+from models.lstm_ctc import Seq2CTC
 
 import argparse
 
@@ -10,7 +10,7 @@ from nltk import word_tokenize
 
 
 class TextProcessor:
-    def __init__(self, vocab_from, vocab_to, lang_from='french', lang_to='english'):
+    def __init__(self, vocab_from, vocab_to, lang_from='german', lang_to='english'):
         self.vocabs = [WordsVocab(lang_from).load(vocab_from),
                        WordsVocab(lang_to).load(vocab_to)]
         self.words = []
@@ -30,7 +30,7 @@ class TextProcessor:
 def predict(args):
     processor = TextProcessor(args['vocab_from'], args['vocab_to'], args['lang_from'], args['lang_to'])
     words = processor.process(args['data'])
-    model = Seq2Seq(len(processor.vocabs[0].t2i), len(processor.vocabs[1].t2i))
+    model = Seq2CTC(len(processor.vocabs[0].t2i), len(processor.vocabs[1].t2i))
     model.load_state_dict(torch.load(args['checkpoint_path'], map_location=torch.device('cpu')))
     model.eval()
     generate_translation(words, model, processor.vocabs)

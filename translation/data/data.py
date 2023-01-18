@@ -26,8 +26,11 @@ class TranslationDataset(Dataset):
         with open(self.paths[langs[0]], 'r') as f1:
             with open(self.paths[langs[1]], 'r') as f2:
                 for lines in tqdm(zip(f1.readlines()[:maxsize], f2.readlines()[:maxsize])):
-                    if len(lines[0].split(' ')) < maxlen and len(lines[1].split(' ')) < maxlen and len(
-                            lines[0].split(' ')) > 1 and len(lines[1].split(' ')) > 1:
+                    if len(lines[0].split(' ')) < maxlen \
+                            and len(lines[1].split(' ')) < maxlen \
+                            and len(lines[0].split(' ')) > 1 \
+                            and len(lines[1].split(' ')) > 1:
+                        remove_line = False
                         for line, lang in zip(lines, langs):
                             content = line.strip().lower()
                             tokenized_content = word_tokenize(content, language=lang)
@@ -36,9 +39,13 @@ class TranslationDataset(Dataset):
                                 if word in self.vocabs[lang].t2i:
                                     content_tokens.append(self.vocabs[lang].t2i[word])
                                 else:
+                                    remove_line = True
                                     content_tokens.append(self.vocabs[lang].t2i['<UNK>'])
                             content_tokens.append(self.vocabs[lang].t2i['<EOS>'])
                             self.data[lang].append(content_tokens)
+                        if remove_line:
+                            self.data[langs[0]].pop()
+                            self.data[langs[1]].pop()
 
     def __getitem__(self, idx):
         return [torch.LongTensor(self.data[lang][idx]) for lang in self.langs]

@@ -4,14 +4,14 @@ import os
 
 import wandb
 
-from translation.data.utils import decode_ctc
+from translation.data.utils import decode_ctc, generate_square_subsequent_mask
 
 
-class TranslationLSTMTCTCrainer:
+class TranslationTransformerCTCTrainer:
     def __init__(self, model: nn.Module, train_loader, val_loader, vocabs, tf=0.25, lr=3e-4, betas=(0.9, 0.999),
                  project="ctc_translation", name='ctc_model', save_every=None, save_path='./'):
         self.vocabs = vocabs
-        self.ctc_criterion = nn.CTCLoss(blank=self.vocabs[0].t2i['<CTC>'], zero_infinity=True)
+        self.ctc_criterion = nn.CTCLoss(blank=vocabs[0].t2i['<CTC>'], zero_infinity=True)
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -36,8 +36,10 @@ class TranslationLSTMTCTCrainer:
                 tokens = tokens.cuda()
                 targets = targets.cuda()
             target_lengths = (targets != 0).sum(dim=1)
-            ctc = self.model(tokens.to(dtype=torch.long), targets.to(dtype=torch.long))
+            ctc = self.model(tokens.to(dtype=torch.long).permute(1, 0),
+                             generate_square_subsequent_mask(2 * tokens.shape[1], cuda))
             input_lengths = 2 * (tokens != 0).sum(dim=1)
+
             loss = 0
             ctc_loss = self.ctc_criterion(ctc.permute(1, 0, 2).to(dtype=torch.float), targets.to(dtype=torch.long),
                                           input_lengths=input_lengths, target_lengths=target_lengths)
@@ -68,7 +70,8 @@ class TranslationLSTMTCTCrainer:
                     tokens = tokens.cuda()
                     targets = targets.cuda()
                 target_lengths = (targets != 0).sum(dim=1)
-                ctc = self.model(tokens.to(dtype=torch.long), targets.to(dtype=torch.long))
+                ctc = self.model(tokens.to(dtype=torch.long).permute(1, 0),
+                                 generate_square_subsequent_mask(2 * tokens.shape[1], cuda))
                 input_lengths = 2 * (tokens != 0).sum(dim=1)
 
                 loss = 0
@@ -95,7 +98,8 @@ class TranslationLSTMTCTCrainer:
         if cuda:
             tokens = tokens.cuda()
             targets = targets.cuda()
-        ctc = self.model(tokens, targets)
+        ctc = self.model(tokens.permute(1, 0),
+                         generate_square_subsequent_mask(2 * tokens.shape[1], cuda))
         ctc = ctc.argmax(dim=-1)
         summ = '<SOS>'
         ctc_sent = []

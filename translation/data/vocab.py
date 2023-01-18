@@ -33,6 +33,21 @@ class WordsVocab:
                 self.i2t[self.t2i[word]] = word
         return self
 
+    def read_file(self, path, save_path='./vocab'):
+        with open(path, 'r') as f:
+            with open(os.path.join(save_path, self.lang + '.txt'), 'w') as fv:
+                for line in tqdm(f.readlines()):
+                    content = line.strip().lower().split(' ')
+                    if self.lang == 'english':
+                        word = content[0].strip().lower()
+                    else:
+                        word = content[1].strip().lower()
+                    if word not in self.t2i:
+                        fv.write(word + '\n')
+                        self.t2i[word] = len(self.t2i)
+                        self.i2t[self.t2i[word]] = word
+        return self
+
     def load(self, path):
         with open(path, 'r', encoding='utf8') as f:
             for line in tqdm(f.readlines()):
