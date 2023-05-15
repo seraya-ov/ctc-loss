@@ -3,7 +3,6 @@ from nltk.translate.bleu_score import corpus_bleu
 
 
 def generate_square_subsequent_mask(sz, cuda=True):
-    """Generates an upper-triangular matrix of -inf, with zeros on diag."""
     mask = torch.triu(torch.ones(sz, sz) * float('-inf'), diagonal=1)
     if cuda:
         return mask.cuda()
