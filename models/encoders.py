@@ -7,8 +7,7 @@ class Encoder(nn.Module):
     def __init__(self, index_dim, embedding_dim=256, hidden_dim=256, dropout=0.2, layers=2):
         super(Encoder, self).__init__()
         self.embedding = nn.Embedding(index_dim, embedding_dim, padding_idx=0)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers=layers, dropout=dropout, bidirectional=True,
-                            batch_first=True)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers=layers, dropout=dropout, bidirectional=True, batch_first=True)
         self.dropout = nn.Dropout(dropout)
         self.directions = 2
         self.layers = layers

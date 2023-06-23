@@ -1,10 +1,6 @@
 import torch
 
-from data.data import TranslationDataset, collate_fn
-from train.lstm_ctc_trainer import TranslationLSTMTCTCrainer
-from models.lstm_ctc import Seq2CTC
-
-from data.vocab import WordsVocab
+from data.vocab import BPEVocab
 
 from torch.utils.data import DataLoader
 
@@ -12,8 +8,8 @@ import argparse
 
 
 def train(args):
-    vocabs = [WordsVocab(lang='german', capacity=args['vocab_size']),
-              WordsVocab(lang='english', capacity=args['vocab_size'])]
+    vocabs = [BPEVocab(lang='german', capacity=args['vocab_size']),
+              BPEVocab(lang='english', capacity=args['vocab_size'])]
     paths = [args['train_from'],
              args['train_to']]
     langs = [args['lang_from'],
@@ -24,14 +20,14 @@ def train(args):
     else:
         vocabs[0].read(args['train_from'])
         vocabs[1].read(args['train_to'])
-    dataset = TranslationDataset(paths, vocabs, langs)
+    dataset = Dataset(paths, vocabs, langs)
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [len(dataset) - args['val_size'],
                                                                           args['val_size']])
     train_loader = DataLoader(train_dataset, batch_size=args['batch_size'], collate_fn=collate_fn)
     val_loader = DataLoader(test_dataset, batch_size=args['batch_size'], collate_fn=collate_fn)
 
-    ctc_model = Seq2CTC(len(vocabs[0].t2i), len(vocabs[1].t2i))
-    ctc_trainer = TranslationLSTMTCTCrainer(ctc_model, train_loader, val_loader, vocabs,
+    ctc_model = Model(len(vocabs[0].t2i), len(vocabs[1].t2i))
+    ctc_trainer = Trainer(ctc_model, train_loader, val_loader, vocabs,
                                             lr=args['lr'], save_every=1, name='bilstm_with_ctc_256',
                                             save_path=args['checkpoint_path'])
     ctc_trainer.fit(args['epochs'], args['cuda'], log=args['log'])

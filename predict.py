@@ -2,7 +2,6 @@ import torch
 
 from data.utils import generate_translation
 from data.vocab import WordsVocab
-from models.lstm_ctc import Seq2CTC
 
 import argparse
 
